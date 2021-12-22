@@ -1,37 +1,54 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
-# the polar form of a lin is represented as rho = x * cos(theta) + y * sin(theta)
-# rho is the perpendicular distance from  the line from the origin in pixels and theta is
-# the angle, the line makes with the origin
+# helper function for region of interest
+def region_of_interest(image, polygons):
+    mask = np.zeros_like(image)
+    cv2.fillPoly(mask, polygons, 255)
+    masked_image = cv2.bitwise_and(image, mask)
+    return masked_image
 
-# reading color image to grayscale
-img = cv2.imread("chess.jpg", cv2.IMREAD_COLOR)
 
-# Convert to gray-scale
+# helper function to apply the lines to the cropped image
+def display_lines(image, lines):
+    makeLineImage = np.zeros_like(image)
+    if lines is not None:
+        for line in lines:
+            for x1, y1, x2, y2 in line:
+                cv2.line(makeLineImage, (x1, y1), (x2, y2), (0, 255, 0), 7)
+    return makeLineImage
+
+# reading image
+img = cv2.imread("road2T.jpg")
+cv2.imshow("Original Image", img)
+# get the height and weight of
+height = img.shape[0]
+width = img.shape[1]
+img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+# convert image to Grayscale
 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-edges = cv2.Canny(gray, 100, 200, apertureSize = 3)
-edgesLine = cv2.HoughLines(edges, 1, np.pi/180, 200)
+cv2.imshow("GrayScale Image", gray)
+# using the Canny filter
+edges = cv2.Canny(gray, 100, 200)
+cv2.imshow("Canny Image", edges)
+# set the borders for the region of interest
+# Note: This may vary for image with types of roads
+polygons = [(0, height), (width/2, height/3), (width, height)]
+
+# get the region of interest
+croppedImage = region_of_interest(edges, np.array([polygons], np.int32))
+cv2.imshow("Cropped Image", croppedImage)
+# use probabilistic Hough Lines for the cropped image with a threshold of 150
+edgesLine = cv2.HoughLinesP(croppedImage, 2, np.pi/180, 150, np.array([]), 40, 5)
+
+# display the image with the lines
+line_image = display_lines(img, edgesLine)
+
+# combines the image with the lines
+combo_image = cv2.addWeighted(img, 0.8, line_image, 1, 1)
 # draw the lines on the image
-for line in edgesLine:
-    # assign rho and theta value from (0,0)
-    rho, theta = line[0]
-    # get sin and cos values
-    a = np.cos(theta)
-    b = np.sin(theta)
 
-    x0 = a * rho
-    y0 = b * rho
-    x1 = int(x0 + 1000 * -b)
-    y1 = int(y0 + 1000 * a)
-    x2 = int(x0 - 1000 * -b)
-    y2 = int(y0 - 1000 * a)
-
-    cv2.line(img, (x1, y1), (x2,y2), (0, 0, 255), 2)
-
-cv2.imshow('Lane Detected',img)
-
+cv2.imshow("Edge Detected", combo_image)
 
 cv2.waitKey(0)
 
